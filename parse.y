@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.261 2026/03/03 19:51:41 rsadowski Exp $	*/
+/*	$OpenBSD: parse.y,v 1.262 2026/04/06 09:14:54 kirill Exp $	*/
 
 /*
  * Copyright (c) 2007 - 2014 Reyk Floeter <reyk@openbsd.org>
@@ -3409,6 +3409,7 @@ struct relay *
 relay_inherit(struct relay *ra, struct relay *rb)
 {
 	struct relay_config	 rc;
+	struct keyname		*name;
 	struct relay_table	*rta, *rtb;
 
 	bcopy(&rb->rl_conf, &rc, sizeof(rc));
@@ -3444,10 +3445,18 @@ relay_inherit(struct relay *ra, struct relay *rb)
 		goto err;
 	}
 
-	if (relay_load_certfiles(conf, rb, NULL) == -1) {
+	if (TAILQ_EMPTY(&rb->rl_proto->tlscerts) &&
+	    relay_load_certfiles(conf, rb, NULL) == -1) {
 		yyerror("cannot load certificates for relay %s",
 		    rb->rl_conf.name);
 		goto err;
+	}
+	TAILQ_FOREACH(name, &rb->rl_proto->tlscerts, entry) {
+		if (relay_load_certfiles(conf, rb, name->name) == -1) {
+			yyerror("cannot load keypair %s for relay %s",
+			    name->name, rb->rl_conf.name);
+			goto err;
+		}
 	}
 
 	TAILQ_FOREACH(rta, &ra->rl_tables, rlt_entry) {
