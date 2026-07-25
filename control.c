@@ -362,8 +362,9 @@ control_dispatch_imsg(int fd, short event, void *arg)
 			proc_forward_imsg(env->sc_ps, &imsg, PROC_PARENT);
 			break;
 		case IMSG_CTL_POLL:
-			proc_compose(env->sc_ps, PROC_HCE,
-			    IMSG_CTL_POLL, NULL, 0);
+			if (proc_compose(env->sc_ps, PROC_HCE, IMSG_CTL_POLL,
+			    NULL, 0) == -1)
+				log_warn("%s: proc_compose", __func__);
 			imsg_compose_event(&c->iev, IMSG_CTL_OK,
 			    0, ps->ps_instance + 1, -1, NULL, 0);
 			break;

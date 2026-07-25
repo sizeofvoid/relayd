@@ -82,8 +82,10 @@ sync_routes(struct relayd *env, struct router *rt)
 			memcpy(&crt.host, &host->conf, sizeof(host->conf));
 			memcpy(&crt.rt, &rt->rt_conf, sizeof(rt->rt_conf));
 
-			proc_compose(env->sc_ps, PROC_PARENT,
-			    IMSG_RTMSG, &crt, sizeof(crt));
+			if (proc_compose(env->sc_ps, PROC_PARENT, IMSG_RTMSG,
+			    &crt, sizeof(crt)) == -1) {
+				log_warn("%s: proc_compose", __func__);
+			}
 		}
 	}
 }
