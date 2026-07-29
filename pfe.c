@@ -750,12 +750,10 @@ pfe_sync(void)
 	struct table		*active;
 	struct table		*table;
 	struct ctl_id		 id;
-	struct imsg		 imsg;
 	struct ctl_demote	 demote;
 	struct router		*rt;
 
 	bzero(&id, sizeof(id));
-	bzero(&imsg, sizeof(imsg));
 	TAILQ_FOREACH(rdr, env->sc_rdrs, entry) {
 		rdr->conf.flags &= ~(F_BACKUP);
 		rdr->conf.flags &= ~(F_DOWN);
@@ -775,12 +773,10 @@ pfe_sync(void)
 			active = rdr->table;
 
 		if (active != NULL && active->conf.flags & F_CHANGED) {
-			id.id = active->conf.id;
-			imsg.hdr.type = IMSG_CTL_TABLE_CHANGED;
-			imsg.hdr.len = sizeof(id) + IMSG_HEADER_SIZE;
-			imsg.data = &id;
 			sync_table(env, rdr, active);
-			control_imsg_forward(&imsg);
+			id.id = active->conf.id;
+			control_imsg_compose(IMSG_CTL_TABLE_CHANGED, &id,
+			    sizeof(id));
 		}
 
 		if (rdr->conf.flags & F_DOWN) {
@@ -789,21 +785,17 @@ pfe_sync(void)
 				log_debug("%s: disabling ruleset", __func__);
 				rdr->conf.flags &= ~(F_ACTIVE_RULESET);
 				id.id = rdr->conf.id;
-				imsg.hdr.type = IMSG_CTL_PULL_RULESET;
-				imsg.hdr.len = sizeof(id) + IMSG_HEADER_SIZE;
-				imsg.data = &id;
 				sync_ruleset(env, rdr, 0);
-				control_imsg_forward(&imsg);
+				control_imsg_compose(IMSG_CTL_PULL_RULESET,
+				    &id, sizeof(id));
 			}
 		} else if (!(rdr->conf.flags & F_ACTIVE_RULESET)) {
 			log_debug("%s: enabling ruleset", __func__);
 			rdr->conf.flags |= F_ACTIVE_RULESET;
 			id.id = rdr->conf.id;
-			imsg.hdr.type = IMSG_CTL_PUSH_RULESET;
-			imsg.hdr.len = sizeof(id) + IMSG_HEADER_SIZE;
-			imsg.data = &id;
 			sync_ruleset(env, rdr, 1);
-			control_imsg_forward(&imsg);
+			control_imsg_compose(IMSG_CTL_PUSH_RULESET, &id,
+			    sizeof(id));
 		}
 	}
 

@@ -429,6 +429,21 @@ control_dispatch_imsg(int fd, short event, void *arg)
 }
 
 void
+control_imsg_compose(uint32_t type, void *data, uint16_t len)
+{
+	struct ctl_conn *c;
+
+	TAILQ_FOREACH(c, &ctl_conns, entry) {
+		if (c->flags & CTL_CONN_NOTIFY) {
+			if (imsg_compose(&c->iev.ibuf, type, 0, 0, -1, data,
+			    len) == -1)
+				fatal("%s: imsg_compose", __func__);
+			imsg_event_add(&c->iev);
+		}
+	}
+}
+
+void
 control_imsg_forward(struct imsg *imsg)
 {
 	struct ctl_conn *c;
