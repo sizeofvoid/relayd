@@ -409,8 +409,13 @@ relays:
 		    &rlay->rl_stats, sizeof(rlay->rl_stats));
 
 		TAILQ_FOREACH(rlt, &rlay->rl_tables, rlt_entry) {
+			struct table	 tbl = *rlt->rlt_table;
+
+			/* Backup role lives on rlt_flags; expose it. */
+			if (rlt->rlt_flags & F_BACKUP)
+				tbl.conf.flags |= F_BACKUP;
 			imsg_compose_event(&c->iev, IMSG_CTL_TABLE, 0, 0, -1,
-			    rlt->rlt_table, sizeof(*rlt->rlt_table));
+			    &tbl, sizeof(tbl));
 			if (!(rlt->rlt_table->conf.flags & F_DISABLE))
 				TAILQ_FOREACH(host,
 				    &rlt->rlt_table->hosts, entry)
