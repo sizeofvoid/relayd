@@ -1003,7 +1003,7 @@ snmp_element(const char *oidstr, enum snmp_type type, void *buf, int64_t val,
 	u_int64_t		 l;
 	struct snmp_oid		 oid;
 
-	DPRINTF("%s: oid %s type %d buf %p val %lld", __func__,
+	log_debug("%s: oid %s type %d buf %p val %lld", __func__,
 	    oidstr, type, buf, val);
 
 	if (snmp_string2oid(oidstr, &oid) == -1)

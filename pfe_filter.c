@@ -414,7 +414,7 @@ sync_ruleset(struct relayd *env, struct rdr *rdr, int enable)
 		rio.rule.dst.port[1] = address->port.val[1];
 		rio.rule.rtableid = -1; /* stay in the main routing table */
 		rio.rule.onrdomain = env->sc_rtable;
-		DPRINTF("%s rtable %d", __func__, env->sc_rtable);
+		log_debug("%s rtable %d", __func__, env->sc_rtable);
 
 		if (rio.rule.proto == IPPROTO_TCP)
 			rio.rule.timeout[PFTM_TCP_ESTABLISHED] =

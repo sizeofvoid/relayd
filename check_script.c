@@ -106,7 +106,7 @@ script_exec(struct relayd *env, struct ctl_script *scr)
 		return (-1);
 	}
 
-	DPRINTF("%s: running script %s, host %s",
+	log_debug("%s: running script %s, host %s",
 	    __func__, scr->path, scr->name);
 
 	arg = scr->name;

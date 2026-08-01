@@ -491,13 +491,13 @@ relay_dns_request(struct rsession *con)
 	    (struct sockaddr *)&con->se_out.ss, slen) == -1) {
 		if (con->se_retry) {
 			con->se_retry--;
-			log_debug("%s: session %d: "
+			log_warn("%s: session %d: "
 			    "forward failed: %s, %s", __func__,
 			    con->se_id, strerror(errno),
 			    con->se_retry ? "next retry" : "last retry");
 			goto retry;
 		}
-		log_debug("%s: session %d: forward failed: %s", __func__,
+		log_warn("%s: session %d: forward failed: %s", __func__,
 		    con->se_id, strerror(errno));
 		return (-1);
 	}

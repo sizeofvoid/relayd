@@ -265,7 +265,7 @@ control_dispatch_imsg(int fd, short event, void *arg)
 			break;
 
 		if (c->waiting) {
-			log_debug("%s: unexpected imsg %d",
+			log_warn("%s: unexpected imsg %d",
 			    __func__, imsg_get_type(&imsg));
 			imsg_free(&imsg);
 			control_close(fd, cs);
