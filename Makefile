@@ -2,11 +2,35 @@
 
 PROG=		relayd
 SRCS=		parse.y
-SRCS+=		agentx_control.c ca.c carp.c check_icmp.c check_script.c \
-		check_tcp.c check_tls.c config.c control.c hce.c log.c \
-		name2id.c pfe.c pfe_filter.c pfe_route.c proc.c \
-		proxy_protocol.c relay.c relay_http.c relay_udp.c relayd.c \
-		shuffle.c ssl.c util.c
+
+SRCS+=	agentx_control.c \
+		ca.c \
+		carp.c \
+		check_icmp.c \
+		check_script.c \
+		check_tcp.c \
+		check_tls.c \
+		config.c \
+		control.c \
+		hce.c \
+		log.c \
+		name2id.c \
+		pfe.c \
+		pfe_filter.c \
+		pfe_route.c \
+		proc.c \
+		proxy_protocol.c \
+		relay.c \
+		relay_http.c \
+		relay_udp.c \
+		relayd.c \
+		shuffle.c \
+		ssl.c \
+		util.c
+
+# Keep in-sync with httpd
+SRCS+=		patterns.c
+
 MAN=		relayd.8 relayd.conf.5
 
 LDADD=		-lagentx -levent -ltls -lssl -lcrypto -lutil
