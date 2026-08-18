@@ -75,7 +75,7 @@ int		 relay_httpcookie_test(struct ctl_relay_event *,
     struct relay_rule *, struct kvlist *);
 int		 relay_apply_actions(struct ctl_relay_event *, struct kvlist *,
     struct relay_table *);
-int		 relay_match_actions(struct ctl_relay_event *,
+int		 relay_add_match_actions(struct ctl_relay_event *,
     struct relay_rule *, struct kvlist *, struct kvlist *,
     struct relay_table **);
 void		 relay_httpdesc_free(struct http_descriptor *);
@@ -1206,8 +1206,7 @@ relay_close_http(struct rsession *con)
 	struct http_session	*hs = con->se_priv;
 	struct http_method_node	*hmn;
 
-	log_debug("%s: session %d http_session %p", __func__,
-	    con->se_id, hs);
+	log_debug("%s: session %d http_session %p", __func__, con->se_id, hs);
 	if (hs != NULL)
 		while (!SIMPLEQ_EMPTY(&hs->hs_methods)) {
 			hmn = SIMPLEQ_FIRST(&hs->hs_methods);
@@ -1472,7 +1471,7 @@ relay_httpquery_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 	else if ((res = relay_lookup_query(cre, kv)) != RES_DROP)
 		return (res);
 
-	relay_match(actions, kv, match, NULL);
+	relay_add_match(actions, kv, match, NULL);
 
 	return (0);
 }
@@ -1515,7 +1514,7 @@ relay_httpheader_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 		}
 	}
 
-	relay_match(actions, kv, match, &desc->http_headers);
+	relay_add_match(actions, kv, match, &desc->http_headers);
 
 	return (0);
 }
@@ -1560,7 +1559,7 @@ relay_httppath_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 		}
 	}
 
-	relay_match(actions, kv, match, NULL);
+	relay_add_match(actions, kv, match, NULL);
 
 	return (0);
 }
@@ -1597,7 +1596,7 @@ relay_httpurl_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 		/* match url only for logging */
 	} else if ((res = relay_lookup_url(cre, host->kv_value, kv)) != 0)
 		return (res);
-	relay_match(actions, kv, match, NULL);
+	relay_add_match(actions, kv, match, NULL);
 
 	return (0);
 }
@@ -1641,17 +1640,20 @@ relay_httpcookie_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 			return (res);
 	}
 
-	relay_match(actions, kv, match, &desc->http_headers);
+	relay_add_match(actions, kv, match, &desc->http_headers);
 
 	return (0);
 }
 
 int
-relay_match_actions(struct ctl_relay_event *cre, struct relay_rule *rule,
+relay_add_match_actions(struct ctl_relay_event *cre, struct relay_rule *rule,
     struct kvlist *matches, struct kvlist *actions, struct relay_table **tbl)
 {
 	struct rsession		*con = cre->con;
 	struct kv		*kv;
+
+	if (rule == NULL)
+		return (-1);
 
 	/*
 	 * Apply the following options instantly (action per match).
@@ -1849,8 +1851,7 @@ relay_apply_actions(struct ctl_relay_event *cre, struct kvlist *actions,
 					    host->kv_value == NULL)
 						break;
 					if (kv_setkey(mp, "%s%s",
-					    host->kv_value, mp->kv_key) ==
-					    -1)
+					    host->kv_value, mp->kv_key) == -1)
 						goto fail;
 					break;
 				default:
@@ -1863,8 +1864,7 @@ relay_apply_actions(struct ctl_relay_event *cre, struct kvlist *actions,
 			default:
 				break;
 			}
-			if (kv_log(con, mp, con->se_label, cre->dir) ==
-			    -1)
+			if (kv_log(con, mp, con->se_label, cre->dir) == -1)
 				goto fail;
 			break;
 		default:
@@ -1972,7 +1972,7 @@ relay_test(struct protocol *proto, struct ctl_relay_event *cre)
 			    __func__, con->se_id, r->rule_id);
 
 			if (r->rule_action == RULE_ACTION_MATCH) {
-				if (relay_match_actions(cre, r, &matches,
+				if (relay_add_match_actions(cre, r, &matches,
 				    &actions, &tbl) != 0) {
 					/* Something bad happened, drop */
 					action = RES_DROP;
@@ -2007,8 +2007,7 @@ relay_test(struct protocol *proto, struct ctl_relay_event *cre)
 		}
 	}
 
-	if (rule != NULL &&
-	    relay_match_actions(cre, rule, NULL, &actions, &tbl) != 0) {
+	if (relay_add_match_actions(cre, rule, NULL, &actions, &tbl) != 0) {
 		/* Something bad happened, drop */
 		action = RES_DROP;
 	}
@@ -2018,8 +2017,7 @@ relay_test(struct protocol *proto, struct ctl_relay_event *cre)
 		action = RES_DROP;
 	}
 
-	log_debug("%s: session %d: action %d", __func__,
-	    con->se_id, action);
+	log_debug("%s: session %d: action %d", __func__, con->se_id, action);
 
 	return (action);
 }
@@ -2065,7 +2063,7 @@ relay_calc_skip_steps(struct relay_rules *rules)
 }
 
 void
-relay_match(struct kvlist *actions, struct kv *kv, struct kv *match,
+relay_add_match(struct kvlist *actions, struct kv *kv, struct kv *match,
     struct kvtree *matchtree)
 {
 	if (kv->kv_option != KEY_OPTION_NONE) {
@@ -2157,10 +2155,8 @@ relay_http_parse_startline(struct ctl_relay_event *cre, char *line,
 		desc->http_status = strtonum(desc->http_rescode, 100, 599,
 		    &errstr);
 		if (errstr) {
-			log_debug(
-			    "%s: http_status %s: errno %d, %s",
-			    __func__, desc->http_rescode, errno,
-			    errstr);
+			log_debug("%s: http_status %s: errno %d, %s",
+			    __func__, desc->http_rescode, errno, errstr);
 			goto fail;
 		}
 		log_debug("http_version %s http_rescode %s http_resmesg %s",

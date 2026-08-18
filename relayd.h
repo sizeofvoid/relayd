@@ -1237,7 +1237,7 @@ int		relay_bufferevent_write(struct ctl_relay_event *,
     void *, size_t);
 int		relay_test(struct protocol *, struct ctl_relay_event *);
 void		relay_calc_skip_steps(struct relay_rules *);
-void		relay_match(struct kvlist *, struct kv *, struct kv *,
+void		relay_add_match(struct kvlist *, struct kv *, struct kv *,
     struct kvtree *);
 void		relay_session_publish(struct rsession *);
 void		relay_session_unpublish(struct rsession *);
