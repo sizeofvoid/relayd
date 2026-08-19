@@ -68,8 +68,6 @@ ca_init(struct privsep *ps, struct privsep_proc *p, void *arg)
 
 	if (config_init(ps->ps_env) == -1)
 		fatal("failed to initialize configuration");
-
-	env->sc_id = getpid() & 0xffff;
 }
 
 void

@@ -446,6 +446,7 @@ struct host {
 	int			 idx;
 	u_int16_t		 he;
 	int			 code;
+	u_int16_t		 icmp_ident;
 	struct ctl_tcp_event	 cte;
 };
 TAILQ_HEAD(hostlist, host);
@@ -1115,7 +1116,6 @@ struct relayd {
 	struct relaycertlist	*sc_certs;
 	struct sessionlist	 sc_sessions;
 	char			 sc_demote_group[IFNAMSIZ];
-	u_int16_t		 sc_id;
 	int			 sc_rtable;
 
 	struct event		 sc_statev;
