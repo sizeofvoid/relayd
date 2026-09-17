@@ -125,7 +125,8 @@ static enum key_type	 keytype = KEY_TYPE_NONE;
 static enum direction	 dir = RELAY_DIR_ANY;
 static char		*rulefile = NULL;
 static union hashkey	*hashkey = NULL;
-static int		 value_pattern = 0;
+static u_int8_t		 val_flag = 0;
+static u_int8_t		 key_flag = 0;
 
 struct address	*host_ip(const char *);
 int		 host_dns(const char *, struct addresslist *,
@@ -180,8 +181,9 @@ typedef struct {
 %token	DEMOTE DESTINATION DIGEST DISABLE
 %token	ECDHE EDH ERROR ERRORS EXPECT EXTERNAL
 %token	FILENAME FORWARD FROM
+%token	GLOB
 %token	HASH HEADER HEADERLEN HOST HTTP
-%token	ICMP INCLUDE INET INET6 INTERFACE INTERVAL IP
+%token	ICMP IGNORECASE INCLUDE INET INET6 INTERFACE INTERVAL IP
 %token	KEY KEYPAIR
 %token	LABEL LEASTSTATES LISTEN LOADBALANCE LOG LOOKUP
 %token	MATCH METHOD MODE NAT NO NODELAY NOTHING
@@ -1603,14 +1605,28 @@ ruleopts	: METHOD STRING					{
 			keytype = KEY_TYPE_COOKIE;
 			rule->rule_kv[keytype].kv_key = strdup($4);
 			rule->rule_kv[keytype].kv_option = $2;
-			if ($3)
+			/* default: cookie name matching is case-insensitive. */
+			if (key_flag == 0)
+				key_flag = KV_FLAG_KEY_GLOBBING_ICASE;
+			rule->rule_kv[keytype].kv_flags |= key_flag;
+
+			if ($5 == NULL) {
 				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_KEY_PATTERN;
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
-			if (value_pattern)
-				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				/*
+				 * default: cookie value matching is
+				 * case-insensitive.
+				 */
+				if (val_flag == 0)
+					val_flag = KV_FLAG_VAL_GLOBBING_ICASE;
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
@@ -1629,18 +1645,36 @@ ruleopts	: METHOD STRING					{
 			memset(&rule->rule_kv[keytype], 0,
 			    sizeof(rule->rule_kv[keytype]));
 			rule->rule_kv[keytype].kv_option = $2;
-			if ($3)
-				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_KEY_PATTERN;
+			/*
+			 * default: HTTP header name matching is
+			 * case-insensitive.
+			 */
+			if (key_flag == 0)
+				key_flag = KV_FLAG_KEY_GLOBBING_ICASE;
+			rule->rule_kv[keytype].kv_flags |= key_flag;
 			rule->rule_kv[keytype].kv_key = strdup($4);
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
+
+			if ($5 == NULL) {
+				rule->rule_kv[keytype].kv_flags |=
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				/*
+				 * default: HTTP header value matching is
+				 * case-insensitive.
+				 */
+				if (val_flag == 0)
+					val_flag = KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
-			if (value_pattern)
-				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			free($4);
 			if ($5)
 				free($5);
@@ -1654,15 +1688,29 @@ ruleopts	: METHOD STRING					{
 		| PATH key_option optpattern STRING value	{
 			keytype = KEY_TYPE_PATH;
 			rule->rule_kv[keytype].kv_option = $2;
-			if ($3)
-				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_KEY_PATTERN;
+			/* default: path matching is case-sensitive. */
+			if (key_flag == 0)
+				key_flag = KV_FLAG_KEY_GLOBBING;
+			rule->rule_kv[keytype].kv_flags |= key_flag;
 			rule->rule_kv[keytype].kv_key = strdup($4);
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
-			if (value_pattern)
+
+			if ($5 == NULL) {
 				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				/*
+				 * default: query part of a path rule is
+				 * matched case-insensitively.
+				 */
+				if (val_flag == 0)
+					val_flag = KV_FLAG_VAL_GLOBBING_ICASE;
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
@@ -1705,15 +1753,29 @@ ruleopts	: METHOD STRING					{
 			}
 			keytype = KEY_TYPE_QUERY;
 			rule->rule_kv[keytype].kv_option = $2;
-			if ($3)
-				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_KEY_PATTERN;
+			/* default: query name matching is case-sensitive. */
+			if (key_flag == 0)
+				key_flag = KV_FLAG_KEY_GLOBBING;
+			rule->rule_kv[keytype].kv_flags |= key_flag;
 			rule->rule_kv[keytype].kv_key = strdup($4);
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
-			if (value_pattern)
+
+			if ($5 == NULL) {
 				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				/*
+				  * default: query value matching is
+				  * case-sensitive.
+				  */
+				if (val_flag == 0)
+					val_flag = KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
@@ -1750,16 +1812,30 @@ ruleopts	: METHOD STRING					{
 			}
 			keytype = KEY_TYPE_URL;
 			rule->rule_kv[keytype].kv_option = $2;
-			if ($3)
-				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_KEY_PATTERN;
+			/* default: URL lookup is case-insensitive. */
+			if (key_flag == 0)
+				key_flag = KV_FLAG_KEY_GLOBBING_ICASE;
+			rule->rule_kv[keytype].kv_flags |= key_flag;
 			rule->rule_kv[keytype].kv_key = strdup($4.digest);
 			rule->rule_kv[keytype].kv_digest = $4.type;
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
-			if (value_pattern)
+
+			if ($5 == NULL) {
 				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				/*
+				 * default: URL lookup value is
+				 * case-insensitive.
+				 */
+				if (val_flag == 0)
+					val_flag = KV_FLAG_VAL_GLOBBING_ICASE;
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
@@ -1919,19 +1995,35 @@ ruleopts	: METHOD STRING					{
 		}
 		;
 
-optpattern	: /* empty */		{ $$ = 0; }
-		| PATTERN		{ $$ = 1; }
+optpattern	: /* empty */		{ $$ = 0;
+					  key_flag = 0;
+					}
+		| PATTERN		{ $$ = 1;
+					  key_flag = KV_FLAG_KEY_PATTERN;
+					}
+		| GLOB			{ $$ = 1;
+					  key_flag = KV_FLAG_KEY_GLOBBING;
+					}
+		| GLOB IGNORECASE	{ $$ = 1;
+					  key_flag = KV_FLAG_KEY_GLOBBING_ICASE;
+					}
 		;
 
-value		: /* empty */		{ $$ = NULL;
-					  value_pattern = 0;
-					}
-		| VALUE STRING		{ $$ = $2;
-					  value_pattern = 0;
-					}
-		| VALUE PATTERN STRING	{ $$ = $3;
-					  value_pattern = 1;
-					}
+value		: /* empty */			{ $$ = NULL;
+						  val_flag = 0;
+						}
+		| VALUE STRING			{ $$ = $2;
+						  val_flag = 0;
+						}
+		| VALUE PATTERN STRING		{ $$ = $3;
+						  val_flag = KV_FLAG_VAL_PATTERN;
+						}
+		| VALUE GLOB STRING		{ $$ = $3;
+						  val_flag = KV_FLAG_VAL_GLOBBING;
+						}
+		| VALUE GLOB IGNORECASE STRING	{ $$ = $4;
+						  val_flag = KV_FLAG_VAL_GLOBBING_ICASE;
+						}
 		;
 
 key_option	: /* empty */		{ $$ = KEY_OPTION_NONE; }
@@ -2607,12 +2699,14 @@ lookup(char *s)
 		{ "file",		FILENAME },
 		{ "forward",		FORWARD },
 		{ "from",		FROM },
+		{ "glob",		GLOB },
 		{ "hash",		HASH },
 		{ "header",		HEADER },
 		{ "headerlen",		HEADERLEN },
 		{ "host",		HOST },
 		{ "http",		HTTP },
 		{ "icmp",		ICMP },
+		{ "ignorecase",		IGNORECASE},
 		{ "include",		INCLUDE },
 		{ "inet",		INET },
 		{ "inet6",		INET6 },
