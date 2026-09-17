@@ -323,11 +323,14 @@ enum digest_type {
 TAILQ_HEAD(kvlist, kv);
 RB_HEAD(kvtree, kv);
 
-#define KV_FLAG_MACRO		 0x01
-#define KV_FLAG_INVALID		 0x02
-#define KV_FLAG_GLOBBING	 0x04
-#define KV_FLAG_KEY_PATTERN	 0x08
-#define KV_FLAG_VAL_PATTERN	 0x10
+#define KV_FLAG_MACRO			0x01
+#define KV_FLAG_INVALID			0x02
+#define KV_FLAG_KEY_PATTERN		0x04
+#define KV_FLAG_KEY_GLOBBING		0x08
+#define KV_FLAG_KEY_GLOBBING_ICASE	0x10
+#define KV_FLAG_VAL_PATTERN		0x20
+#define KV_FLAG_VAL_GLOBBING		0x40
+#define KV_FLAG_VAL_GLOBBING_ICASE	0x80
 
 struct kv {
 	char			*kv_key;
@@ -1357,8 +1360,8 @@ int			 kv_log(struct rsession *, struct kv *, u_int16_t,
 struct kv		*kv_find(struct kvtree *, struct kv *);
 struct kv		*kv_find_value(struct kvtree *, char *, const char *,
     const char *);
-int			 kv_match_key(const struct kv *, const char *, int);
-int			 kv_match_val(const struct kv *, const char *, int);
+int			 kv_match_key(const struct kv *, const char *);
+int			 kv_match_val(const struct kv *, const char *);
 int			 kv_cmp(struct kv *, struct kv *);
 int			 rule_add(struct protocol *, struct relay_rule *,
     const char *);

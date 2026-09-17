@@ -1323,8 +1323,8 @@ $ echo -n "example.com/path/?args" | sha1
 may be one of:
 .Bl -tag -width Ds
 .It Xo Ic cookie Ar option
-.Oo Oo Ic pattern Oc Ar key
-.Oo Ic value Oo Ic pattern Oc Ar value Oc Oc
+.Oo Oo Ar matching Oc Ar key
+.Oo Ic value Oo Ar matching Oc Ar value Oc Oc
 .Xc
 Look up the entity as a value in the Cookie header.
 This type is only available with the direction
@@ -1338,8 +1338,8 @@ block request quick cookie "session" value pattern "^admin_"
 pass  request cookie "lang" value pattern "^%a%a$"
 .Ed
 .It Xo Ic header Ar option
-.Oo Oo Ic pattern Oc Ar key
-.Oo Ic value Oo Ic pattern Oc Ar value Oc Oc
+.Oo Oo Ar matching Oc Ar key
+.Oo Ic value Oo Ar matching Oc Ar value Oc Oc
 .Xc
 Look up the entity in the application protocol headers, like HTTP
 headers in
@@ -1360,8 +1360,8 @@ pass  request header "Content-Type" \e
 pass request header remove pattern "^X%-Debug%-"
 .Ed
 .It Xo Ic path Ar option
-.Oo Oo Ic pattern Oc Ar key
-.Oo Ic value Oo Ic pattern Oc Ar value Oc Oc
+.Oo Oo Ar matching Oc Ar key
+.Oo Ic value Oo Ar matching Oc Ar value Oc Oc
 .Xc
 Look up the entity as a value in the URL path when using the
 .Ic http
@@ -1397,8 +1397,8 @@ protocol.
 This type is only available with the direction
 .Ic request .
 .It Xo Ic query Ar option
-.Oo Oo Ic pattern Oc Ar key
-.Oo Ic value Oo Ic pattern Oc Ar value Oc Oc
+.Oo Oo Ar matching Oc Ar key
+.Oo Ic value Oo Ar matching Oc Ar value Oc Oc
 .Xc
 Look up the entity as a query variable in the URL when using the
 .Ic http
@@ -1417,8 +1417,8 @@ pass request query "id" value pattern "^%d+$"
 block request quick query pattern "^debug" value "*"
 .Ed
 .It Xo Ic url Ar option
-.Oo Oo Ic pattern Oc Oo Ic digest Oc Ar key
-.Oo Ic value Oo Ic pattern Oc Ar value Oc Oc
+.Oo Oo Ar matching Oc Oo Ic digest Oc Ar key
+.Oo Ic value Oo Ar matching Oc Ar value Oc Oc
 .Xc
 Look up the entity as a URL suffix/prefix expression consisting of a
 canonicalized hostname without port or suffix and a path name or
@@ -1459,17 +1459,26 @@ example.com/1/2/3/
 .Ed
 .El
 .Pp
-The optional
-.Ic pattern
-keyword makes the following string a
-.Xr patterns 7
-expression instead of the default
-.Xr glob 7
-pattern.
+An optional
+.Ar matching
+keyword
+.Po
+.Ic pattern ,
+.Ic glob ,
+or
+.Ic glob ignorecase ;
+see
+.Sx Matching options
+below
+.Pc
+selects how the following string is interpreted.
 It can appear before any matchable string, for example:
 .Bd -literal -offset indent
 pass request path pattern "^/api/v%d+/" \e
     value pattern "^id=%d+$"
+
+pass request header "User-Agent" \e
+    value glob ignorecase "*mozilla*"
 .Ed
 .Pp
 Note that macro expansion is disabled on a
@@ -1504,6 +1513,11 @@ values, for the
 name, and for
 .Ic query
 names and values, matching how the client sent them on the wire.
+Use
+.Ic glob ignorecase
+to force case-insensitive
+.Xr glob 7
+matching on those fields.
 When porting existing rules to
 .Ic pattern ,
 add character classes such as
@@ -1518,22 +1532,25 @@ is omitted, it defaults to
 .Sq *
 and matches any value using
 .Xr glob 7
-rules regardless of whether the key uses
-.Ic pattern .
+rules regardless of which
+.Ar matching
+keyword the key uses.
 .Pp
 For
 .Ic url ,
-.Ic pattern
-on the
+a
+.Ar matching
+keyword on the
 .Ar key
 is tested against every candidate form listed above; anchor patterns
 carefully.
 When combined with
 .Ic digest ,
-the pattern applies to the digest string, not to the URL.
+the match applies to the digest string, not to the URL.
 .Pp
-.Ic pattern
-on the
+A
+.Ar matching
+keyword on the
 .Ar key
 is most useful with the
 .Ic remove
@@ -1613,6 +1630,33 @@ may contain predefined macros that will be expanded at runtime,
 as detailed for the
 .Ic append
 directive above.
+.El
+.Ss Matching options
+An optional
+.Ar matching
+keyword before a
+.Ar key
+or
+.Ar value
+string selects how the following string is interpreted.
+It may be one of:
+.Bl -tag -width Ds
+.It Ic pattern
+Treat the following string as a
+.Xr patterns 7
+expression.
+Matching is always case-sensitive.
+.It Ic glob
+Treat the following string as a
+.Xr glob 7
+pattern.
+This is the default when no
+.Ar matching
+keyword is given.
+.It Ic glob Ic ignorecase
+Like
+.Ic glob ,
+but match case-insensitively regardless of which field is looked up.
 .El
 .Ss Routers
 Routers represent routing table entries in the kernel forwarding
