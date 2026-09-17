@@ -850,35 +850,42 @@ kv_log(struct rsession *con, struct kv *kv, u_int16_t labelid,
  * Returns 1 on match, 0 on no match or error.
  */
 static int
-_kv_match(const char *pattern, const char *str, int is_pattern, int fnflags)
+_kv_match(const char *pattern, const char *str, const u_int8_t matching)
 {
 	struct str_find	 sm;
 	const char	*errstr = NULL;
 
 	if (pattern == NULL || str == NULL)
 		return (0);
-	if (!is_pattern)
-		return (fnmatch(pattern, str, fnflags) != FNM_NOMATCH);
 
-	if (str_find(str, pattern, &sm, 1, &errstr) > 0 && errstr == NULL)
-		return (1);
-	if (errstr != NULL)
-		log_warnx("%s: pattern \"%s\": %s", __func__, pattern, errstr);
+	if (matching & (KV_FLAG_VAL_PATTERN | KV_FLAG_KEY_PATTERN)) {
+		if (str_find(str, pattern, &sm, 1, &errstr) > 0 &&
+		    errstr == NULL)
+			return (1);
+		if (errstr != NULL)
+			log_warnx("%s: pattern \"%s\": %s", __func__, pattern,
+			    errstr);
+		return (0);
+	}
+	if (matching & (KV_FLAG_VAL_GLOBBING | KV_FLAG_KEY_GLOBBING)) {
+		return (fnmatch(pattern, str, 0) != FNM_NOMATCH);
+	} else if (matching &
+	    (KV_FLAG_VAL_GLOBBING_ICASE | KV_FLAG_KEY_GLOBBING_ICASE)) {
+		return (fnmatch(pattern, str, FNM_IGNORECASE) != FNM_NOMATCH);
+	}
 	return (0);
 }
 
 int
-kv_match_key(const struct kv *kv, const char *str, int fnflags)
+kv_match_key(const struct kv *kv, const char *str)
 {
-	return (_kv_match(kv->kv_key, str, kv->kv_flags & KV_FLAG_KEY_PATTERN,
-	    fnflags));
+	return (_kv_match(kv->kv_key, str, kv->kv_flags));
 }
 
 int
-kv_match_val(const struct kv *kv, const char *str, int fnflags)
+kv_match_val(const struct kv *kv, const char *str)
 {
-	return (_kv_match(kv->kv_value, str, kv->kv_flags & KV_FLAG_VAL_PATTERN,
-	    fnflags));
+	return (_kv_match(kv->kv_value, str, kv->kv_flags));
 }
 
 /*
@@ -894,14 +901,18 @@ kv_find(struct kvtree *keys, struct kv *kv)
 	  * If the key uses glob(7) or a patterns(7) expression, fall back
 	  * to a linear scan and match each entry.
 	  */
-	if (kv->kv_flags & (KV_FLAG_GLOBBING | KV_FLAG_KEY_PATTERN)) {
+	if (kv->kv_flags &
+	    (KV_FLAG_KEY_GLOBBING | KV_FLAG_KEY_GLOBBING_ICASE |
+	     KV_FLAG_KEY_PATTERN)) {
 		RB_FOREACH(match, kvtree, keys) {
-			if (kv_match_key(kv, match->kv_key, FNM_CASEFOLD)) {
+			if (kv_match_key(kv, match->kv_key)) {
 				log_debug("%s: %s \"%s\" matched key \"%s\"",
 				    __func__,
 				    (kv->kv_flags & KV_FLAG_KEY_PATTERN) ?
-				    "pattern" : "glob",
-				    kv->kv_key, match->kv_key);
+				    "pattern" : (kv->kv_flags &
+				    KV_FLAG_KEY_GLOBBING_ICASE) ?
+				    "glob ignorecase" : "glob", kv->kv_key,
+				    match->kv_key);
 				break;
 			}
 		}
@@ -1006,7 +1017,7 @@ rule_add(struct protocol *proto, struct relay_rule *rule, const char *rulefile)
 		if (kv->kv_key != NULL &&
 		    !(kv->kv_flags & KV_FLAG_KEY_PATTERN) &&
 		    strpbrk(kv->kv_key, "*?[") != NULL)
-			kv->kv_flags |= KV_FLAG_GLOBBING;
+			kv->kv_flags |= KV_FLAG_KEY_GLOBBING;
 	}
 
 	if (rulefile == NULL) {

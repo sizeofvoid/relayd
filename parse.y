@@ -125,7 +125,7 @@ static enum key_type	 keytype = KEY_TYPE_NONE;
 static enum direction	 dir = RELAY_DIR_ANY;
 static char		*rulefile = NULL;
 static union hashkey	*hashkey = NULL;
-static int		 value_pattern = 0;
+static u_int8_t		 val_flag = 0;
 
 struct address	*host_ip(const char *);
 int		 host_dns(const char *, struct addresslist *,
@@ -180,8 +180,9 @@ typedef struct {
 %token	DEMOTE DESTINATION DIGEST DISABLE
 %token	ECDHE EDH ERROR ERRORS EXPECT EXTERNAL
 %token	FILENAME FORWARD FROM
+%token	GLOB
 %token	HASH HEADER HEADERLEN HOST HTTP
-%token	ICMP INCLUDE INET INET6 INTERFACE INTERVAL IP
+%token	ICMP IGNORECASE INCLUDE INET INET6 INTERFACE INTERVAL IP
 %token	KEY KEYPAIR
 %token	LABEL LEASTSTATES LISTEN LOADBALANCE LOG LOOKUP
 %token	MATCH METHOD MODE NAT NO NODELAY NOTHING
@@ -1606,11 +1607,18 @@ ruleopts	: METHOD STRING					{
 			if ($3)
 				rule->rule_kv[keytype].kv_flags |=
 				    KV_FLAG_KEY_PATTERN;
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
-			if (value_pattern)
+
+			if ($5 == NULL) {
 				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
@@ -1633,14 +1641,22 @@ ruleopts	: METHOD STRING					{
 				rule->rule_kv[keytype].kv_flags |=
 				    KV_FLAG_KEY_PATTERN;
 			rule->rule_kv[keytype].kv_key = strdup($4);
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
+
+			if ($5 == NULL) {
+				rule->rule_kv[keytype].kv_flags |=
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
-			if (value_pattern)
-				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			free($4);
 			if ($5)
 				free($5);
@@ -1658,11 +1674,18 @@ ruleopts	: METHOD STRING					{
 				rule->rule_kv[keytype].kv_flags |=
 				    KV_FLAG_KEY_PATTERN;
 			rule->rule_kv[keytype].kv_key = strdup($4);
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
-			if (value_pattern)
+
+			if ($5 == NULL) {
 				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
@@ -1709,11 +1732,18 @@ ruleopts	: METHOD STRING					{
 				rule->rule_kv[keytype].kv_flags |=
 				    KV_FLAG_KEY_PATTERN;
 			rule->rule_kv[keytype].kv_key = strdup($4);
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
-			if (value_pattern)
+
+			if ($5 == NULL) {
 				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
@@ -1755,11 +1785,18 @@ ruleopts	: METHOD STRING					{
 				    KV_FLAG_KEY_PATTERN;
 			rule->rule_kv[keytype].kv_key = strdup($4.digest);
 			rule->rule_kv[keytype].kv_digest = $4.type;
-			rule->rule_kv[keytype].kv_value = (($5 != NULL) ?
-			    strdup($5) : strdup("*"));
-			if (value_pattern)
+
+			if ($5 == NULL) {
 				rule->rule_kv[keytype].kv_flags |=
-				    KV_FLAG_VAL_PATTERN;
+				    KV_FLAG_VAL_GLOBBING;
+				rule->rule_kv[keytype].kv_value = strdup("*");
+			}
+			else {
+				rule->rule_kv[keytype].kv_value = strdup($5);
+			}
+
+			rule->rule_kv[keytype].kv_flags |= val_flag;
+
 			if (rule->rule_kv[keytype].kv_key == NULL ||
 			    rule->rule_kv[keytype].kv_value == NULL)
 				fatal("out of memory");
@@ -1921,17 +1958,25 @@ ruleopts	: METHOD STRING					{
 
 optpattern	: /* empty */		{ $$ = 0; }
 		| PATTERN		{ $$ = 1; }
+		| GLOB			{ $$ = 1; }
+		| GLOB IGNORECASE	{ $$ = 2; }
 		;
 
-value		: /* empty */		{ $$ = NULL;
-					  value_pattern = 0;
-					}
-		| VALUE STRING		{ $$ = $2;
-					  value_pattern = 0;
-					}
-		| VALUE PATTERN STRING	{ $$ = $3;
-					  value_pattern = 1;
-					}
+value		: /* empty */			{ $$ = NULL;
+						  val_flag = 0;
+						}
+		| VALUE STRING			{ $$ = $2;
+						  val_flag = 0;
+						}
+		| VALUE PATTERN STRING		{ $$ = $3;
+						  val_flag = KV_FLAG_VAL_PATTERN;
+						}
+		| VALUE GLOB STRING		{ $$ = $3;
+						  val_flag = KV_FLAG_VAL_GLOBBING;
+						}
+		| VALUE GLOB IGNORECASE STRING	{ $$ = $4;
+						  val_flag = KV_FLAG_VAL_GLOBBING_ICASE;
+						}
 		;
 
 key_option	: /* empty */		{ $$ = KEY_OPTION_NONE; }
@@ -2607,12 +2652,14 @@ lookup(char *s)
 		{ "file",		FILENAME },
 		{ "forward",		FORWARD },
 		{ "from",		FROM },
+		{ "glob",		GLOB },
 		{ "hash",		HASH },
 		{ "header",		HEADER },
 		{ "headerlen",		HEADERLEN },
 		{ "host",		HOST },
 		{ "http",		HTTP },
 		{ "icmp",		ICMP },
+		{ "ignorecase",		IGNORECASE},
 		{ "include",		INCLUDE },
 		{ "inet",		INET },
 		{ "inet6",		INET6 },

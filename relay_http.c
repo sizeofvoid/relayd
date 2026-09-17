@@ -880,7 +880,7 @@ _relay_lookup_url(struct ctl_relay_event *cre, char *host, char *path,
 	    str, kv->kv_key);
 
 	if (kv->kv_flags & KV_FLAG_KEY_PATTERN) {
-		if (kv_match_key(kv, str, 0)) {
+		if (kv_match_key(kv, str)) {
 			log_debug("%s: session %d: pattern \"%s\" matched "
 			    "url \"%s\"",
 			    __func__, con->se_id, kv->kv_key, str);
@@ -1016,10 +1016,10 @@ relay_lookup_cookie(struct ctl_relay_event *cre, const char *str,
 			value[strlen(value) - 1] = '\0';
 
 		if (((kv->kv_flags & KV_FLAG_KEY_PATTERN) ?
-		    kv_match_key(kv, key, 0) :
+		    kv_match_key(kv, key) :
 		    strcasecmp(kv->kv_key, key) == 0) &&
 		    (kv->kv_value == NULL ||
-		     kv_match_val(kv, value, FNM_CASEFOLD))) {
+		     kv_match_val(kv, value))) {
 			log_debug("%s: matched cookie \"%s\" value \"%s\" "
 			    "(rule value \"%s\")",
 			    __func__, key, value,
@@ -1064,8 +1064,8 @@ relay_lookup_query(struct ctl_relay_event *cre, struct kv *kv)
 			continue;
 		*tmpval++ = '\0';
 
-		if (kv_match_key(kv, tmpkey, 0) &&
-		    (kv->kv_value == NULL || kv_match_val(kv, tmpval, 0))) {
+		if (kv_match_key(kv, tmpkey) &&
+		    (kv->kv_value == NULL || kv_match_val(kv, tmpval))) {
 			log_debug("%s: matched query key \"%s\" value \"%s\" "
 			    "(rule key \"%s\" value \"%s\")",
 			    __func__, tmpkey, tmpval, kv->kv_key,
@@ -1506,7 +1506,7 @@ relay_httpheader_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 		return (-1);
 	} else {
 		if (kv->kv_value != NULL && match->kv_value != NULL &&
-		    !kv_match_val(kv, match->kv_value, 0)) {
+		    !kv_match_val(kv, match->kv_value)) {
 			log_debug("%s: rule %d: header \"%s\" value mismatch: "
 			    "rule \"%s\" vs. actual \"%s\"",
 			    __func__, rule->rule_id, kv->kv_key,
@@ -1540,7 +1540,7 @@ relay_httppath_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 	else if (kv->kv_option != KEY_OPTION_STRIP) {
 		if (kv->kv_key == NULL)
 			return (0);
-		else if (!kv_match_key(kv, desc->http_path, 0)) {
+		else if (!kv_match_key(kv, desc->http_path)) {
 			log_debug("%s: rule %d: path \"%s\" does not match "
 			    "rule key \"%s\"",
 			    __func__, rule->rule_id, desc->http_path,
@@ -1550,7 +1550,7 @@ relay_httppath_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 		    kv->kv_option == KEY_OPTION_NONE) {
 			query = desc->http_query == NULL ? "" :
 			    desc->http_query;
-			if (!kv_match_val(kv, query, FNM_CASEFOLD)) {
+			if (!kv_match_val(kv, query)) {
 				log_debug("%s: rule %d: query \"%s\" does not "
 				    "match rule value \"%s\"",
 				    __func__, rule->rule_id, query,
@@ -1590,7 +1590,7 @@ relay_httpurl_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 		return (0);
 	else if (rule->rule_action != RULE_ACTION_BLOCK &&
 	    kv->kv_option == KEY_OPTION_LOG &&
-	    kv_match_key(kv, match->kv_key, FNM_CASEFOLD)) {
+	    kv_match_key(kv, match->kv_key)) {
 		log_info("%s: rule %d: url \"%s\" matched",
 		    __func__, rule->rule_id,
 		    match->kv_key ? match->kv_key : "");
