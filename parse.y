@@ -145,6 +145,7 @@ struct relay	*relay_inherit(struct relay *, struct relay *);
 int		 getservice(char *);
 int		 is_if_in_group(const char *, const char *);
 static struct keyname *proto_keyname(char *);
+static int	 rule_kv_sanity_check(enum key_option);
 static void 	 rule_kv_setvalue(struct kv *, const char *, u_int16_t);
 
 typedef struct {
@@ -1603,6 +1604,11 @@ ruleopts	: METHOD STRING					{
 			free($2);
 		}
 		| COOKIE key_option optpattern STRING value	{
+			if (rule_kv_sanity_check($2) == -1) {
+				free($4);
+				free($5);
+				YYERROR;
+			}
 			keytype = KEY_TYPE_COOKIE;
 			rule->rule_kv[keytype].kv_key = strdup($4);
 			rule->rule_kv[keytype].kv_option = $2;
@@ -1627,6 +1633,11 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| HEADER key_option optpattern STRING value		{
+			if (rule_kv_sanity_check($2) == -1) {
+				free($4);
+				free($5);
+				YYERROR;
+			}
 			keytype = KEY_TYPE_HEADER;
 			rule->rule_kv[keytype].kv_option = $2;
 			rule->rule_kv[keytype].kv_key = strdup($4);
@@ -1659,6 +1670,11 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| PATH key_option optpattern STRING value	{
+			if (rule_kv_sanity_check($2) == -1) {
+				free($4);
+				free($5);
+				YYERROR;
+			}
 			keytype = KEY_TYPE_PATH;
 			rule->rule_kv[keytype].kv_option = $2;
 			/* default: path matching is case-sensitive. */
@@ -1698,6 +1714,11 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| QUERYSTR key_option optpattern STRING value	{
+			if (rule_kv_sanity_check($2) == -1) {
+				free($4);
+				free($5);
+				YYERROR;
+			}
 			switch ($2) {
 			case KEY_OPTION_APPEND:
 			case KEY_OPTION_SET:
@@ -1744,6 +1765,11 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| URL key_option optpattern optdigest value	{
+			if (rule_kv_sanity_check($2) == -1) {
+				free($4.digest);
+				free($5);
+				YYERROR;
+			}
 			switch ($2) {
 			case KEY_OPTION_APPEND:
 			case KEY_OPTION_SET:
@@ -3820,6 +3846,18 @@ proto_keyname(char *name)
 	}
 	TAILQ_INSERT_TAIL(&proto->tlscerts, kname, entry);
 	return kname;
+}
+
+static int
+rule_kv_sanity_check(enum key_option opt)
+{
+	if ((opt == KEY_OPTION_SET || opt == KEY_OPTION_APPEND) &&
+	    (key_flag != 0 || val_flag != 0)) {
+		yyerror("matching keyword not allowed with %s",
+		    opt == KEY_OPTION_SET ? "set" : "append");
+		return (-1);
+	}
+	return (0);
 }
 
 /*
