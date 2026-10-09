@@ -145,6 +145,7 @@ struct relay	*relay_inherit(struct relay *, struct relay *);
 int		 getservice(char *);
 int		 is_if_in_group(const char *, const char *);
 static struct keyname *proto_keyname(char *);
+static int	 rule_kv_dup(struct relay_rule *, enum key_type , const char *);
 static int	 rule_kv_sanity_check(enum key_option);
 static void 	 rule_kv_setvalue(struct kv *, const char *, u_int16_t);
 
@@ -1604,7 +1605,9 @@ ruleopts	: METHOD STRING					{
 			free($2);
 		}
 		| COOKIE key_option optpattern STRING value	{
-			if (rule_kv_sanity_check($2) == -1) {
+			if (rule_kv_sanity_check($2) == -1 ||
+			    (rule_kv_dup(rule, KEY_TYPE_COOKIE,
+			    "cookie") != 0)) {
 				free($4);
 				free($5);
 				YYERROR;
@@ -1628,12 +1631,16 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| COOKIE key_option				{
+			if (rule_kv_dup(rule, KEY_TYPE_COOKIE, "cookie") != 0)
+				YYERROR;
 			keytype = KEY_TYPE_COOKIE;
 			rule->rule_kv[keytype].kv_option = $2;
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| HEADER key_option optpattern STRING value		{
-			if (rule_kv_sanity_check($2) == -1) {
+			if (rule_kv_sanity_check($2) == -1 ||
+			    (rule_kv_dup(rule, KEY_TYPE_HEADER,
+			    "header") != 0)) {
 				free($4);
 				free($5);
 				YYERROR;
@@ -1665,12 +1672,15 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| HEADER key_option				{
+			if (rule_kv_dup(rule, KEY_TYPE_HEADER, "header") != 0)
+				YYERROR;
 			keytype = KEY_TYPE_HEADER;
 			rule->rule_kv[keytype].kv_option = $2;
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| PATH key_option optpattern STRING value	{
-			if (rule_kv_sanity_check($2) == -1) {
+			if (rule_kv_sanity_check($2) == -1 ||
+			    (rule_kv_dup(rule, KEY_TYPE_PATH, "path") != 0)) {
 				free($4);
 				free($5);
 				YYERROR;
@@ -1695,12 +1705,17 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| PATH key_option				{
+			if (rule_kv_dup(rule, KEY_TYPE_PATH, "path") != 0)
+				YYERROR;
 			keytype = KEY_TYPE_PATH;
 			rule->rule_kv[keytype].kv_option = $2;
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| PATH STRIP NUMBER				{
 			char	*strip = NULL;
+
+			if (rule_kv_dup(rule, KEY_TYPE_PATH, "path") != 0)
+				YYERROR;
 
 			if ($3 < 0 || $3 > INT_MAX) {
 				yyerror("invalid strip number");
@@ -1714,7 +1729,8 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| QUERYSTR key_option optpattern STRING value	{
-			if (rule_kv_sanity_check($2) == -1) {
+			if (rule_kv_sanity_check($2) == -1 ||
+			    (rule_kv_dup(rule, KEY_TYPE_QUERY, "query") != 0)) {
 				free($4);
 				free($5);
 				YYERROR;
@@ -1751,6 +1767,8 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| QUERYSTR key_option				{
+			if (rule_kv_dup(rule, KEY_TYPE_QUERY, "query") != 0)
+				YYERROR;
 			switch ($2) {
 			case KEY_OPTION_APPEND:
 			case KEY_OPTION_SET:
@@ -1765,7 +1783,8 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| URL key_option optpattern optdigest value	{
-			if (rule_kv_sanity_check($2) == -1) {
+			if (rule_kv_sanity_check($2) == -1 ||
+			    (rule_kv_dup(rule, KEY_TYPE_URL, "url") != 0)) {
 				free($4.digest);
 				free($5);
 				YYERROR;
@@ -1800,6 +1819,8 @@ ruleopts	: METHOD STRING					{
 			rule->rule_kv[keytype].kv_type = keytype;
 		}
 		| URL key_option					{
+			if (rule_kv_dup(rule, KEY_TYPE_URL, "url") != 0)
+				YYERROR;
 			switch ($2) {
 			case KEY_OPTION_APPEND:
 			case KEY_OPTION_SET:
@@ -3858,6 +3879,18 @@ rule_kv_sanity_check(enum key_option opt)
 		return (-1);
 	}
 	return (0);
+}
+
+static int
+rule_kv_dup(struct relay_rule *r, enum key_type type, const char *name)
+{
+	if (r == NULL)
+		return (0);
+	if (r->rule_kv[type].kv_type == KEY_TYPE_NONE)
+		return (0);
+	yyerror("duplicate %s option in rule, "
+	    "use tag/tagged to combine conditions", name);
+	return (-1);
 }
 
 /*
