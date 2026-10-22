@@ -1677,6 +1677,13 @@ ruleopts	: METHOD STRING					{
 			keytype = KEY_TYPE_HEADER;
 			rule->rule_kv[keytype].kv_option = $2;
 			rule->rule_kv[keytype].kv_type = keytype;
+			/*
+			 * XXX
+			 * No default key flag here, unlike path and query:
+			 * a following "file" must keep header keys literal,
+			 * so rule_add() sets glob ignorecase only for the
+			 * "*" it adds to "header log" without a key.
+			 */
 		}
 		| PATH key_option optpattern STRING value	{
 			if (rule_kv_sanity_check($2) == -1 ||
@@ -1710,6 +1717,9 @@ ruleopts	: METHOD STRING					{
 			keytype = KEY_TYPE_PATH;
 			rule->rule_kv[keytype].kv_option = $2;
 			rule->rule_kv[keytype].kv_type = keytype;
+			/* default: path matching is case-sensitive glob(7). */
+			rule->rule_kv[keytype].kv_flags |=
+			    KV_FLAG_KEY_GLOBBING;
 		}
 		| PATH STRIP NUMBER				{
 			char	*strip = NULL;
@@ -1781,6 +1791,11 @@ ruleopts	: METHOD STRING					{
 			keytype = KEY_TYPE_QUERY;
 			rule->rule_kv[keytype].kv_option = $2;
 			rule->rule_kv[keytype].kv_type = keytype;
+			/*
+			 * default:
+			 * query name matching is case-sensitive glob(7)
+			 */
+			rule->rule_kv[keytype].kv_flags |= KV_FLAG_KEY_GLOBBING;
 		}
 		| URL key_option optpattern optdigest value	{
 			if (rule_kv_sanity_check($2) == -1 ||
@@ -1964,6 +1979,14 @@ ruleopts	: METHOD STRING					{
 				if ((rule->rule_kv[keytype].kv_value =
 				    strdup($3)) == NULL)
 					fatal("out of memory");
+				/* per-type value default, as before */
+				if (keytype == KEY_TYPE_HEADER ||
+				    keytype == KEY_TYPE_QUERY)
+					rule->rule_kv[keytype].kv_flags |=
+					    KV_FLAG_VAL_GLOBBING;
+				else
+					rule->rule_kv[keytype].kv_flags |=
+					    KV_FLAG_VAL_GLOBBING_ICASE;
 				free($3);
 			} else
 				rule->rule_kv[keytype].kv_value = NULL;

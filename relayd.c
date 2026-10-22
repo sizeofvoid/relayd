@@ -1037,6 +1037,15 @@ rule_add(struct protocol *proto, struct relay_rule *rule, const char *rulefile)
 		    (kv->kv_flags & KV_FLAG_KEY_GLOBBING_ICASE) &&
 		    strpbrk(kv->kv_key, "*?[\\") == NULL)
 			kv->kv_flags &= ~KV_FLAG_KEY_GLOBBING_ICASE;
+		/*
+		 * Case: "header log" without a key got "*" above, match it
+		 * as glob ignorecase like before.
+		 */
+		if (kv->kv_type == KEY_TYPE_HEADER && kv->kv_key != NULL &&
+		    (kv->kv_flags & (KV_FLAG_KEY_PATTERN |
+		    KV_FLAG_KEY_GLOBBING | KV_FLAG_KEY_GLOBBING_ICASE)) == 0 &&
+		    strpbrk(kv->kv_key, "*?[") != NULL)
+			kv->kv_flags |= KV_FLAG_KEY_GLOBBING_ICASE;
 	}
 
 	if (rulefile == NULL) {
