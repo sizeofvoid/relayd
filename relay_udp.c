@@ -465,7 +465,7 @@ relay_dns_request(struct rsession *con)
 
 	if (buf == NULL || priv == NULL || len < 1)
 		return (-1);
-	if (log_getverbose() > 1)
+	if (log_is_debug())
 		relay_dns_log(con, buf, len);
 
 	getmonotime(&con->se_tv_start);
@@ -520,7 +520,7 @@ relay_dns_result(struct rsession *con, u_int8_t *buf, size_t len)
 	if (priv == NULL)
 		fatalx("%s: response to invalid session", __func__);
 
-	if (log_getverbose() > 1)
+	if (log_is_debug())
 		relay_dns_log(con, buf, len);
 
 	/*

@@ -595,7 +595,7 @@ proc_dispatch(int fd, short event, void *arg)
 	struct imsgbuf		*ibuf;
 	struct imsg		 imsg;
 	int			 n;
-	int			 ver;
+	u_int8_t		 loglv;
 	const char		*title;
 	struct privsep_fd	 pf;
 
@@ -652,11 +652,10 @@ proc_dispatch(int fd, short event, void *arg)
 		 * Generic message handling
 		 */
 		switch (imsg_get_type(&imsg)) {
-		case IMSG_CTL_VERBOSE:
-			if (imsg_get_data(&imsg, &ver, sizeof(ver)) == -1)
+		case IMSG_CTL_LOGLEVEL:
+			if (imsg_get_data(&imsg, &loglv, sizeof(loglv)) == -1)
 				fatalx("%s: imsg_get_data", __func__);
-
-			log_setverbose(ver);
+			log_setlevel(loglv);
 			break;
 		case IMSG_CTL_PROCFD:
 			if (p->p_id != PROC_PARENT) {

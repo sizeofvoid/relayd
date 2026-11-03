@@ -28,6 +28,7 @@
 
 static int		 debug;
 static int		 verbose;
+static u_int8_t		 loglevel;
 static const char	*log_procname;
 
 void
@@ -37,6 +38,7 @@ log_init(int n_debug, int facility)
 
 	debug = n_debug;
 	verbose = n_debug;
+	loglevel = LOGLVL_DEFAULT;
 	log_procinit(__progname);
 
 	if (!debug)
@@ -62,6 +64,38 @@ int
 log_getverbose(void)
 {
 	return (verbose);
+}
+
+void
+log_setlevel(u_int8_t lv)
+{
+	loglevel = lv;
+}
+
+u_int8_t
+log_getlevel(void)
+{
+	return (loglevel);
+}
+
+const char *
+log_getlevel_str(u_int8_t l)
+{
+	switch (l) {
+	case LOGLVL_WARN:
+		return ("warn");
+	case LOGLVL_INFO:
+		return ("info");
+	case LOGLVL_DEBUG:
+		return ("debug");
+	}
+	return ("unknown");
+}
+
+int
+log_is_debug(void)
+{
+	return (log_getlevel() == LOGLVL_DEBUG);
 }
 
 void
@@ -139,9 +173,11 @@ log_info(const char *emsg, ...)
 {
 	va_list	 ap;
 
-	va_start(ap, emsg);
-	vlog(LOG_INFO, emsg, ap);
-	va_end(ap);
+	if (log_getlevel() >= LOGLVL_INFO) {
+		va_start(ap, emsg);
+		vlog(LOG_INFO, emsg, ap);
+		va_end(ap);
+	}
 }
 
 void
@@ -149,7 +185,7 @@ log_debug(const char *emsg, ...)
 {
 	va_list	 ap;
 
-	if (verbose) {
+	if (log_is_debug()) {
 		va_start(ap, emsg);
 		vlog(LOG_DEBUG, emsg, ap);
 		va_end(ap);
