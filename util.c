@@ -326,12 +326,23 @@ fail:
 	return NULL;
 }
 
+#ifdef DEBUG
+void
+print_debug(const char *emsg, ...)
+{
+	va_list	 ap;
+
+	va_start(ap, emsg);
+	vfprintf(stderr, emsg, ap);
+	va_end(ap);
+}
+
 void
 print_hex(uint8_t *buf, off_t offset, size_t length)
 {
 	unsigned int	 i;
 
-	if (log_getverbose() < 3 || !length)
+	if (!length)
 		return;
 
 	for (i = 0; i < length; i++) {
@@ -345,15 +356,4 @@ print_hex(uint8_t *buf, off_t offset, size_t length)
 	}
 	print_debug("\n");
 }
-
-void
-print_debug(const char *emsg, ...)
-{
-	va_list	 ap;
-
-	if (log_getverbose() > 2) {
-		va_start(ap, emsg);
-		vfprintf(stderr, emsg, ap);
-		va_end(ap);
-	}
-}
+#endif

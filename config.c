@@ -47,6 +47,7 @@ config_init(struct relayd *env)
 		env->sc_conf.interval.tv_sec = CHECK_INTERVAL;
 		env->sc_conf.interval.tv_usec = 0;
 		env->sc_conf.prefork_relay = RELAY_NUMPROC;
+		env->sc_conf.loglevel = LOGLVL_DEFAULT;
 		env->sc_conf.statinterval.tv_sec = RELAY_STATINTERVAL;
 		env->sc_ps->ps_csock.cs_name = RELAYD_SOCKET;
 	}
@@ -263,6 +264,37 @@ config_getreset(struct relayd *env, struct imsg *imsg)
 	return (0);
 }
 
+void
+config_setlogoption(struct ctl_logopt *logopt, struct relayd_config *sc_conf)
+{
+	int op = logopt->opt;
+
+	/* "connection" toggles both LOG_CONN and LOG_CONN_ERR together */
+	if (op & RELAYD_OPT_LOG_CONN)
+		op |= RELAYD_OPT_LOG_CONN_ERR;
+
+	if (logopt->enable)
+		sc_conf->opts |= op;
+	else
+		sc_conf->opts &= ~op;
+}
+
+const char *
+config_getlogopt_str(int opt)
+{
+	switch (opt) {
+	case RELAYD_OPT_LOG_STATE_CHANGE:
+		return ("state-changes");
+	case RELAYD_OPT_LOG_HOST_CHECKS:
+		return ("host-checks");
+	case RELAYD_OPT_LOG_CONN:
+		return ("connection");
+	case RELAYD_OPT_LOG_CONN_ERR:
+		return ("connection-errors");
+	}
+	return ("unknown");
+}
+
 int
 config_getcfg(struct relayd *env, struct imsg *imsg)
 {
@@ -278,7 +310,7 @@ config_getcfg(struct relayd *env, struct imsg *imsg)
 		return (-1);
 	}
 
-	log_setverbose((env->sc_conf.opts & RELAYD_OPT_VERBOSE) ? 2 : 0);
+	log_setlevel(env->sc_conf.loglevel);
 
 	what = ps->ps_what[privsep_process];
 

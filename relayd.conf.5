@@ -167,16 +167,28 @@ Optionally log only
 .Ic connection errors .
 .It Xo
 .Ic log level
-.Pq Ic brief Ns | Ns Ic verbose
+.Pq Ic warn Ns | Ns Ic info Ns | Ns Ic debug
 .Xc
-Set the log verbosity.
-.Ic brief
-is the default;
-.Ic verbose
-enables debug logging, equivalent to starting
+Set the log level.
+.Ic warn
+logs only warnings and errors,
+.Ic info
+also logs informational messages and is the default,
+and
+.Ic debug
+also logs debug messages, equivalent to starting
 .Xr relayd 8
 with
 .Fl v .
+The deprecated keywords
+.Ic brief
+and
+.Ic verbose
+are mapped to
+.Ic info
+and
+.Ic debug ,
+respectively.
 .It Ic prefork Ar number
 When using relays, run the specified number of processes to handle
 relayed connections.
