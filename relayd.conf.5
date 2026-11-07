@@ -1154,6 +1154,15 @@ The connection is passed;
 will continue to process the relay session normally.
 .El
 .Pp
+If the action is directly followed by the
+.Ic log
+keyword, the decision of a
+.Ic pass
+or
+.Ic block
+rule is logged for every request or response
+for which it is the deciding rule.
+.Pp
 These filter parameters can be used in the rules:
 .Bl -tag -width Ds
 .It Ic request No or Ic response

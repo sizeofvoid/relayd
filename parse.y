@@ -217,7 +217,7 @@ typedef struct {
 %type	<v.number>	dstmode flag forwardmode retry
 %type	<v.number>	opttls opttlsclient optproxyproto
 %type	<v.number>	redirect_proto relay_proto match pflog
-%type	<v.number>	action ruleaf key_option optpattern
+%type	<v.number>	action actionlog ruleaf key_option optpattern
 %type	<v.port>	port
 %type	<v.host>	host
 %type	<v.addr>	address rulesrc ruledst addrprefix
@@ -1506,19 +1506,24 @@ flag		: STRING			{
 		}
 		;
 
-filterrule	: action dir quick ruleaf rulesrc ruledst {
+filterrule	: action actionlog dir quick ruleaf rulesrc ruledst {
+			if ($2 && $1 == RULE_ACTION_MATCH) {
+				yyerror("log is only supported for pass "
+					"and block");
+				YYERROR;
+			}
 			if ((rule = calloc(1, sizeof(*rule))) == NULL)
 				fatal("out of memory");
 
 			rule->rule_action = $1;
 			rule->rule_proto = proto->type;
-			rule->rule_dir = $2;
-			rule->rule_flags |= $3;
-			rule->rule_af = $4;
-			rule->rule_src.addr = $5.ss;
-			rule->rule_src.addr_mask = $5.prefixlen;
-			rule->rule_dst.addr = $6.ss;
-			rule->rule_dst.addr_mask = $6.prefixlen;
+			rule->rule_dir = $3;
+			rule->rule_flags |= $2 | $4;
+			rule->rule_af = $5;
+			rule->rule_src.addr = $6.ss;
+			rule->rule_src.addr_mask = $6.prefixlen;
+			rule->rule_dst.addr = $7.ss;
+			rule->rule_dst.addr_mask = $7.prefixlen;
 
 			if (RELAY_AF_NEQ(rule->rule_af,
 			    rule->rule_src.addr.ss_family) ||
@@ -1580,6 +1585,11 @@ dir		: /* empty */			{
 quick		: /* empty */			{ $$ = 0; }
 		| QUICK				{ $$ = RULE_FLAG_QUICK; }
 		;
+
+actionlog	: /* empty */			{ $$ = 0; }
+		| LOG				{ $$ = RULE_FLAG_LOG; }
+		;
+
 
 ruleaf		: /* empty */			{ $$ = AF_UNSPEC; }
 		| INET6				{ $$ = AF_INET6; }

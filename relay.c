@@ -155,6 +155,9 @@ relay_ruledebug(struct relay_rule *rule)
 	if (rule->rule_flags & RULE_FLAG_QUICK)
 		fprintf(stderr, "quick ");
 
+	if (rule->rule_flags & RULE_FLAG_LOG)
+		fprintf(stderr, "log ");
+
 	switch (rule->rule_af) {
 	case AF_INET:
 		fprintf(stderr, "inet ");
