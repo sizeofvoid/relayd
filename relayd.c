@@ -2067,3 +2067,106 @@ parent_tls_ticket_rekey(int fd, short events, void *arg)
 	tv.tv_sec = TLS_SESSION_LIFETIME / 4;
 	evtimer_add(&rekeyev, &tv);
 }
+
+/*
+ * Decode %XX sequences in place. Returns NULL on an invalid sequence.
+ */
+const char *
+url_decode(char *url)
+{
+	char		*p, *q;
+	char		 hex[3];
+	unsigned long	 x;
+
+	hex[2] = '\0';
+	p = q = url;
+
+	while (*p != '\0') {
+		switch (*p) {
+		case '%':
+			/* Encoding character is followed by two hex chars */
+			if (!(isxdigit((unsigned char)p[1]) &&
+			    isxdigit((unsigned char)p[2])))
+				return (NULL);
+
+			hex[0] = p[1];
+			hex[1] = p[2];
+
+			/*
+			 * We don't have to validate "hex" because it is
+			 * guaranteed to include two hex chars followed by nul.
+			 */
+			x = strtoul(hex, NULL, 16);
+			*q = (char)x;
+			p += 2;
+			break;
+		default:
+			*q = *p;
+			break;
+		}
+		p++;
+		q++;
+	}
+	*q = '\0';
+
+	return (url);
+}
+
+/*
+ * Remove "//", "/./" and "/../" from an absolute path.
+ * The output is never longer than the input.
+ */
+const char *
+canonicalize_path(const char *input, char *path, size_t len)
+{
+	const char	*i;
+	char		*p, *start, *end;
+
+	/* assuming input starts with '/' and is nul-terminated */
+	i = input;
+	p = path;
+
+	if (*input != '/' || len < 3)
+		return (NULL);
+
+	start = p;
+	end = p + (len - 1);
+
+	while (*i != '\0') {
+		/* Detect truncation */
+		if (p >= end)
+			return (NULL);
+
+		/* 1. check for special path elements */
+		if (i[0] == '/') {
+			if (i[1] == '/') {
+				/* a) skip repeating '//' slashes */
+				while (i[1] == '/')
+					i++;
+				continue;
+			} else if (i[1] == '.' && i[2] == '.' &&
+			    (i[3] == '/' || i[3] == '\0')) {
+				/* b) revert '..' to previous directory */
+				i += 3;
+				while (p > start && *p != '/')
+					p--;
+				*p = '\0';
+				continue;
+			} else if (i[1] == '.' &&
+			    (i[2] == '/' || i[2] == '\0')) {
+				/* c) skip unnecessary '.' current dir */
+				i += 2;
+				continue;
+			}
+		}
+
+		/* 2. copy any other characters */
+		*p++ = *i;
+		i++;
+	}
+	if (p == start)
+		*p++ = '/';
+	*p++ = '\0';
+
+	return (path);
+}

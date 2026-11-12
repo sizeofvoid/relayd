@@ -1372,6 +1372,8 @@ void			 rule_free(struct relay_rule *);
 struct relay_rule	*rule_inherit(struct relay_rule *);
 void			 rule_settable(struct relay_rules *,
     struct relay_table *);
+const char		*url_decode(char *);
+const char		*canonicalize_path(const char *, char *, size_t);
 RB_PROTOTYPE(kvtree, kv, kv_node, kv_cmp);
 
 /* carp.c */
