@@ -2366,6 +2366,16 @@ relay_http_path_match(struct http_descriptor *desc)
 		src = path;
 	}
 
+	/* Determines if semicolon in the URL (matrix variables)
+	 * and disable this behavior because it is a common way
+	 * of attempting to perform Reflected File Download Attacks
+	 */
+	if (strstr(src, ";") != NULL) {
+		log_debug("%s: path '%s': semicolon is not allowed"
+		    " in the URL path", __func__, src);
+		goto done;
+	}
+
 	/* An encoded NUL would end the decoded string early */
 	if (strstr(src, "%00") != NULL) {
 		log_debug("%s: path '%s': encoded NUL is not allowed",
