@@ -90,6 +90,7 @@ static int	 relay_http_parse_startline_res(struct ctl_relay_event *,
     char *, enum httpmethod *);
 static int	 relay_http_parse_startline_req(struct ctl_relay_event *,
     char *);
+static int	 relay_http_path_match(struct http_descriptor *);
 
 static struct relayd	*env = NULL;
 
@@ -159,6 +160,8 @@ relay_httpdesc_free(struct http_descriptor *desc)
 
 	free(desc->http_path);
 	desc->http_path = NULL;
+	free(desc->http_path_match);
+	desc->http_path_match = NULL;
 	free(desc->http_query);
 	desc->http_query = NULL;
 	free(desc->http_version);
@@ -964,9 +967,10 @@ relay_lookup_url(struct ctl_relay_event *cre, const char *host, struct kv *kv)
 		dots = 0;
 	hi[dots] = ph;
 
-	if ((pp = strdup(desc->http_path)) == NULL) {
+	if ((pp = strdup(desc->http_path_match != NULL ?
+	    desc->http_path_match : desc->http_path)) == NULL)
 		return (RES_INTERNAL);
-	}
+
 	for (i = (RELAY_MAXLOOKUPLEVELS - 1); i >= 0; i--) {
 		if (hi[i] == NULL)
 			continue;
@@ -1559,17 +1563,20 @@ relay_httppath_test(struct ctl_relay_event *cre, struct relay_rule *rule,
 	struct kv		*kv = &rule->rule_kv[KEY_TYPE_PATH];
 	struct kv		*match = &desc->http_pathquery;
 	const char		*query;
+	const char		*path;
+
+	path = desc->http_path_match != NULL ?
+	    desc->http_path_match : desc->http_path;
 
 	if (cre->dir == RELAY_DIR_RESPONSE || kv->kv_type != KEY_TYPE_PATH)
 		return (0);
 	else if (kv->kv_option != KEY_OPTION_STRIP) {
 		if (kv->kv_key == NULL)
 			return (0);
-		else if (!kv_match_key(kv, desc->http_path)) {
+		else if (!kv_match_key(kv, path)) {
 			log_debug("%s: rule %d: path \"%s\" does not match "
 			    "rule key \"%s\"",
-			    __func__, rule->rule_id, desc->http_path,
-			    kv->kv_key);
+			    __func__, rule->rule_id, path, kv->kv_key);
 			return (-1);
 		} else if (kv->kv_value != NULL &&
 		    kv->kv_option == KEY_OPTION_NONE) {
@@ -2269,6 +2276,13 @@ relay_http_parse_startline_req(struct ctl_relay_event *cre, char *line)
 	    strdup(desc->http_query)) == NULL)
 		goto fail;
 
+	switch (relay_http_path_match(desc)) {
+	case -1:
+		goto fail;
+	case 1:
+		relay_abort_http(con, 400, "malformed path", 0);
+		return (-1);
+	}
 	return (0);
 fail:
 	relay_abort_http(con, 500, strerror(errno), 0);
@@ -2320,4 +2334,68 @@ relay_log_rule(struct relay_rule *rule, struct http_descriptor *desc,
 	    hbuf, meth == NULL ? "-" : meth,
 	    host == NULL || host->kv_value == NULL ? "" : host->kv_value,
 	    desc->http_path == NULL ? "" : desc->http_path);
+}
+
+/*
+ * Returns 0 on success, 1 if the path is malformed and the request has
+ * to be rejected, -1 on memory allocation failure.
+ */
+static int
+relay_http_path_match(struct http_descriptor *desc)
+{
+	char		*urlproto = NULL, *host = NULL, *path = NULL;
+	char		*dec = NULL, *canon = NULL;
+	const char	*src;
+	size_t		 len;
+	int		 ret = 1;
+
+	free(desc->http_path_match);
+	desc->http_path_match = NULL;
+
+	src = desc->http_path;
+
+	/* asterisk-form (OPTIONS *) and authority-form (CONNECT) */
+	if (strcmp(src, "*") == 0 ||
+	    desc->http_method == HTTP_METHOD_CONNECT)
+		return (0);
+
+	/* absolute-form: match on the path component only */
+	if (*src != '/') {
+		if (parse_url(src, &urlproto, &host, &path) == -1)
+			goto done;
+		src = path;
+	}
+
+	/* An encoded NUL would end the decoded string early */
+	if (strstr(src, "%00") != NULL) {
+		log_debug("%s: path '%s': encoded NUL is not allowed",
+		    __func__, src);
+		goto done;
+	}
+
+	if ((dec = strdup(src)) == NULL)
+		goto fail;
+	if (url_decode(dec) == NULL)
+		goto done;
+
+	len = strlen(dec) + 2;
+	if ((canon = calloc(1, len)) == NULL)
+		goto fail;
+	if (canonicalize_path(dec, canon, len) == NULL)
+		goto done;
+
+	desc->http_path_match = canon;
+	canon = NULL;
+	ret = 0;
+	goto done;
+
+ fail:
+	ret = -1;
+ done:
+	free(canon);
+	free(dec);
+	free(urlproto);
+	free(host);
+	free(path);
+	return (ret);
 }

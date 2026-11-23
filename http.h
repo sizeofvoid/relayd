@@ -243,6 +243,9 @@ struct http_descriptor {
 #define query_key		 http_matchquery.kv_key
 #define query_val		 http_matchquery.kv_value
 
+	/* Decoded and canonicalized request path used for rule matching */
+	char			*http_path_match;
+
 	char			*http_host;
 	enum httpmethod		 http_method;
 	enum httpmethod		 http_request_method;
